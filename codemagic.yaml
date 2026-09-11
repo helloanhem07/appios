@@ -1,6 +1,6 @@
 workflows:
   ios-workflow:
-    name: AI Chat iOS
+    name: AI Chat iOS IPA
     instance_type: mac_mini_m2
     environment:
       xcode: latest
@@ -35,8 +35,21 @@ workflows:
           YML
           brew install xcodegen
           xcodegen generate
-      - name: Build
+      - name: Apply signing profiles
         script: |
-          xcodebuild -project AIChatApp.xcodeproj -scheme AIChatApp -sdk iphoneos -configuration Debug -archivePath build/AIChatApp.xcarchive archive CODE_SIGNING_ALLOWED=NO
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          xcodebuild -project AIChatApp.xcodeproj \
+            -scheme AIChatApp \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath build/AIChatApp.xcarchive \
+            archive
+          xcodebuild -exportArchive \
+            -archivePath build/AIChatApp.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist "$HOME/export_options.plist"
     artifacts:
+      - build/ipa/*.ipa
       - build/AIChatApp.xcarchive
