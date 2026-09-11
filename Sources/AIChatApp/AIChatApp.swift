@@ -2,6 +2,8 @@ import SwiftUI
 import Foundation
 import Security
 
+private let apiBaseURL = "http://222.255.184.131:20128/v1"
+
 @main
 struct AIChatApp: App {
     var body: some Scene { WindowGroup { ContentView() } }
@@ -27,7 +29,7 @@ struct ORChoice: Codable { let message: ORMessage }
 
 final class KeychainStore {
     static let shared = KeychainStore()
-    private let service = "AIChatApp.OpenRouter"
+    private let service = "AIChatApp.OmniRouter"
     func save(_ value: String) {
         let data = Data(value.utf8)
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: "apiKey", kSecValueData as String: data]
@@ -70,7 +72,8 @@ final class ChatViewModel: ObservableObject {
         defer { isSending = false }
         do {
             let body = ORRequest(model: "openai/gpt-4o-mini", messages: messages.map { ORMessage(role: $0.role, content: $0.content) }, temperature: 0.7)
-            var request = URLRequest(url: URL(string: "https://openrouter.ai/api/v1/chat/completions")!)
+            guard let url = URL(string: "\(apiBaseURL)/chat/completions") else { throw URLError(.badURL) }
+            var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -78,7 +81,8 @@ final class ChatViewModel: ObservableObject {
             request.httpBody = try JSONEncoder().encode(body)
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-                throw NSError(domain: "OpenRouter", code: 1, userInfo: [NSLocalizedDescriptionKey: "OpenRouter request failed."])
+                let serverText = String(data: data, encoding: .utf8) ?? ""
+                throw NSError(domain: "OmniRouter", code: 1, userInfo: [NSLocalizedDescriptionKey: "API request failed (\((response as? HTTPURLResponse)?.statusCode ?? 0)). \(serverText)"])
             }
             let decoded = try JSONDecoder().decode(ORResponse.self, from: data)
             if let answer = decoded.choices.first?.message.content { messages.append(ChatMessage(role: "assistant", content: answer)) }
@@ -96,7 +100,7 @@ struct ContentView: View {
                 if vm.messages.isEmpty {
                     Spacer(); Image(systemName: "sparkles").font(.system(size: 46)).padding(.bottom, 8)
                     Text("AI Chat").font(.largeTitle.bold())
-                    Text("Chat with an AI model through OpenRouter").foregroundStyle(.secondary)
+                    Text("Chat through Omni Router").foregroundStyle(.secondary)
                     Spacer()
                 } else {
                     ScrollViewReader { proxy in
@@ -106,7 +110,7 @@ struct ContentView: View {
                                     HStack { if msg.role == "assistant" { bubble(msg.content, false); Spacer() } else { Spacer(); bubble(msg.content, true) } }.id(msg.id)
                                 }
                             }.padding()
-                        }.onChange(of: vm.messages.count) { _, _ in if let id = vm.messages.last?.id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } } }
+                        }.onChange(of: vm.messages.count) { _ in if let id = vm.messages.last?.id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } } }
                     }
                 }
                 HStack(alignment: .bottom, spacing: 8) {
@@ -133,9 +137,9 @@ struct APIKeyView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("OpenRouter API Key") {
-                    SecureField("sk-or-...", text: $key)
-                    Text("Your key is stored locally in the iOS Keychain.").font(.footnote).foregroundStyle(.secondary)
+                Section("Omni Router API Key") {
+                    SecureField("API key", text: $key)
+                    Text("The key is stored locally in the iOS Keychain.").font(.footnote).foregroundStyle(.secondary)
                 }
                 Button("Save") { vm.saveKey(key); dismiss() }.disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 if vm.apiKey != nil { Button("Remove API Key", role: .destructive) { vm.clearKey(); dismiss() } }
