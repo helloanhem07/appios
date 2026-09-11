@@ -1,26 +1,34 @@
 workflows:
   ios-workflow:
-    name: AI Chat iOS Unsigned IPA
+    name: AI Chat iOS Unsigned IPA ZIP
     instance_type: mac_mini_m2
+
     environment:
       xcode: latest
       vars:
         BUNDLE_ID: "com.helloanhem07.AIChatApp"
+        API_BASE_URL: "http://222.255.184.131:20128/v1"
+
     scripts:
+
       - name: Create Xcode project
         script: |
           cat > project.yml <<'YML'
           name: AIChatApp
+
           options:
             bundleIdPrefix: com.helloanhem07
             deploymentTarget:
               iOS: "16.0"
+
           targets:
             AIChatApp:
               type: application
               platform: iOS
+
               sources:
                 - path: Sources/AIChatApp
+
               settings:
                 base:
                   PRODUCT_BUNDLE_IDENTIFIER: com.helloanhem07.AIChatApp
@@ -30,14 +38,22 @@ workflows:
                   CODE_SIGNING_ALLOWED: NO
                   CODE_SIGNING_REQUIRED: NO
                   CODE_SIGN_IDENTITY: ""
+
               info:
                 path: Sources/AIChatApp/Info.plist
           YML
+
           brew install xcodegen
           xcodegen generate
+
       - name: Build unsigned app
         script: |
-          xcodebuild -project AIChatApp.xcodeproj \
+          set -e
+
+          rm -rf build
+
+          xcodebuild \
+            -project AIChatApp.xcodeproj \
             -scheme AIChatApp \
             -sdk iphoneos \
             -configuration Release \
@@ -45,15 +61,39 @@ workflows:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build
-      - name: Package unsigned IPA
+            clean build
+
+      - name: Package IPA into ZIP
         script: |
-          APP_PATH=$(find build/DerivedData/Build/Products -type d -name "AIChatApp.app" | head -n 1)
-          test -n "$APP_PATH"
-          rm -rf build/Payload build/ipa
-          mkdir -p build/Payload build/ipa
+          set -e
+
+          APP_PATH="$(find build/DerivedData/Build/Products -type d -name 'AIChatApp.app' | head -n 1)"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: AIChatApp.app not found"
+            exit 1
+          fi
+
+          rm -rf build/Payload
+          rm -rf build/ipa
+          rm -f AIChatApp-IPA.zip
+
+          mkdir -p build/Payload
+          mkdir -p build/ipa
+
           cp -R "$APP_PATH" build/Payload/AIChatApp.app
+
           cd build
+
           zip -qry ipa/AIChatApp-unsigned.ipa Payload
+
+          cd ..
+
+          cp build/ipa/AIChatApp-unsigned.ipa .
+
+          zip -qry AIChatApp-IPA.zip AIChatApp-unsigned.ipa
+
+          rm -f AIChatApp-unsigned.ipa
+
     artifacts:
-      - build/ipa/*.ipa
+      - AIChatApp-IPA.zip
