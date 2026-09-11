@@ -1,14 +1,11 @@
 workflows:
   ios-workflow:
-    name: AI Chat iOS IPA
+    name: AI Chat iOS Unsigned IPA
     instance_type: mac_mini_m2
     environment:
       xcode: latest
       vars:
         BUNDLE_ID: "com.helloanhem07.AIChatApp"
-      ios_signing:
-        distribution_type: development
-        bundle_identifier: $BUNDLE_ID
     scripts:
       - name: Create Xcode project
         script: |
@@ -30,26 +27,33 @@ workflows:
                   INFOPLIST_KEY_CFBundleDisplayName: AI Chat
                   SWIFT_VERSION: 5.0
                   TARGETED_DEVICE_FAMILY: "1,2"
+                  CODE_SIGNING_ALLOWED: NO
+                  CODE_SIGNING_REQUIRED: NO
+                  CODE_SIGN_IDENTITY: ""
               info:
                 path: Sources/AIChatApp/Info.plist
           YML
           brew install xcodegen
           xcodegen generate
-      - name: Apply signing profiles
-        script: |
-          xcode-project use-profiles
-      - name: Build IPA
+      - name: Build unsigned app
         script: |
           xcodebuild -project AIChatApp.xcodeproj \
             -scheme AIChatApp \
             -sdk iphoneos \
             -configuration Release \
-            -archivePath build/AIChatApp.xcarchive \
-            archive
-          xcodebuild -exportArchive \
-            -archivePath build/AIChatApp.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist "$HOME/export_options.plist"
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package unsigned IPA
+        script: |
+          APP_PATH=$(find build/DerivedData/Build/Products -type d -name "AIChatApp.app" | head -n 1)
+          test -n "$APP_PATH"
+          rm -rf build/Payload build/ipa
+          mkdir -p build/Payload build/ipa
+          cp -R "$APP_PATH" build/Payload/AIChatApp.app
+          cd build
+          zip -qry ipa/AIChatApp-unsigned.ipa Payload
     artifacts:
       - build/ipa/*.ipa
-      - build/AIChatApp.xcarchive
