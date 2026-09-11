@@ -5,7 +5,7 @@ workflows:
     environment:
       xcode: latest
       vars:
-        BUNDLE_ID: "com.example.AIChatApp"
+        BUNDLE_ID: "com.helloanhem07.AIChatApp"
       ios_signing:
         distribution_type: development
         bundle_identifier: $BUNDLE_ID
@@ -15,7 +15,7 @@ workflows:
           cat > project.yml <<'YML'
           name: AIChatApp
           options:
-            bundleIdPrefix: com.example
+            bundleIdPrefix: com.helloanhem07
             deploymentTarget:
               iOS: "16.0"
           targets:
@@ -26,7 +26,7 @@ workflows:
                 - path: Sources/AIChatApp
               settings:
                 base:
-                  PRODUCT_BUNDLE_IDENTIFIER: com.example.AIChatApp
+                  PRODUCT_BUNDLE_IDENTIFIER: com.helloanhem07.AIChatApp
                   INFOPLIST_KEY_CFBundleDisplayName: AI Chat
                   SWIFT_VERSION: 5.0
                   TARGETED_DEVICE_FAMILY: "1,2"
